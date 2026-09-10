@@ -1,5 +1,5 @@
-const AppDataSource = require("../config/data-source");
-
+const taskService = require("../services/taskService");
+const userService = require("../services/userService");
 
 const createTask = async(req, res) => {
     try {
@@ -11,77 +11,50 @@ const createTask = async(req, res) => {
             });
         }
 
-        const taskRepository =
-            AppDataSource.getRepository("Task");
-
-        const userRepository =
-            AppDataSource.getRepository("User");
-
-        const user =
-            await userRepository.findOneBy({
-                id: req.user.id
-            });
+        const user = await userService.findUserById(req.user.id);
 
         if (!user) {
             return res.status(404).json({
                 message: "User not found"
             });
         }
-        const newTask = taskRepository.create({
+
+        const task = await taskService.createTask({
             title,
             description,
             user
         });
 
-        const savedTask =
-            await taskRepository.save(newTask);
-
-        res.status(201).json(savedTask);
+        res.status(201).json({
+            message: "Task created successfully",
+            task
+        });
 
     } catch (error) {
         res.status(500).json({
-            message: error.message
+            message: "Error creating task",
+            error: error.message
         });
     }
 };
 
-
 const getTasks = async(req, res) => {
     try {
-        const taskRepository =
-            AppDataSource.getRepository("Task");
-
-        const tasks =
-            await taskRepository.find({
-                relations: {
-                    user: true
-                }
-            });
+        const tasks = await taskService.getTasks();
 
         res.status(200).json(tasks);
 
     } catch (error) {
         res.status(500).json({
-            message: error.message
+            message: "Error fetching tasks",
+            error: error.message
         });
     }
 };
 
-
 const getTaskById = async(req, res) => {
     try {
-        const taskRepository =
-            AppDataSource.getRepository("Task");
-
-        const task =
-            await taskRepository.findOne({
-                where: {
-                    id: Number(req.params.id)
-                },
-                relations: {
-                    user: true
-                }
-            });
+        const task = await taskService.getTaskById(req.params.id);
 
         if (!task) {
             return res.status(404).json({
@@ -93,26 +66,15 @@ const getTaskById = async(req, res) => {
 
     } catch (error) {
         res.status(500).json({
-            message: error.message
+            message: "Error fetching task",
+            error: error.message
         });
     }
 };
 
-
 const updateTask = async(req, res) => {
     try {
-        const taskRepository =
-            AppDataSource.getRepository("Task");
-
-        const task =
-            await taskRepository.findOne({
-                where: {
-                    id: Number(req.params.id)
-                },
-                relations: {
-                    user: true
-                }
-            });
+        const task = await taskService.getTaskById(req.params.id);
 
         if (!task) {
             return res.status(404).json({
@@ -122,7 +84,7 @@ const updateTask = async(req, res) => {
 
         if (task.user.id !== req.user.id) {
             return res.status(403).json({
-                message: "You are not allowed to update this task"
+                message: "You are not authorized to update this task"
             });
         }
 
@@ -140,32 +102,24 @@ const updateTask = async(req, res) => {
             task.completed = completed;
         }
 
-        const updatedTask =
-            await taskRepository.save(task);
+        const updatedTask = await taskService.updateTask(task);
 
-        res.status(200).json(updatedTask);
+        res.status(200).json({
+            message: "Task updated successfully",
+            task: updatedTask
+        });
 
     } catch (error) {
         res.status(500).json({
-            message: error.message
+            message: "Error updating task",
+            error: error.message
         });
     }
 };
 
 const deleteTask = async(req, res) => {
     try {
-        const taskRepository =
-            AppDataSource.getRepository("Task");
-
-        const task =
-            await taskRepository.findOne({
-                where: {
-                    id: Number(req.params.id)
-                },
-                relations: {
-                    user: true
-                }
-            });
+        const task = await taskService.getTaskById(req.params.id);
 
         if (!task) {
             return res.status(404).json({
@@ -175,11 +129,11 @@ const deleteTask = async(req, res) => {
 
         if (task.user.id !== req.user.id) {
             return res.status(403).json({
-                message: "You are not allowed to delete this task"
+                message: "You are not authorized to delete this task"
             });
         }
 
-        await taskRepository.remove(task);
+        await taskService.deleteTask(task);
 
         res.status(200).json({
             message: "Task deleted successfully"
@@ -187,7 +141,8 @@ const deleteTask = async(req, res) => {
 
     } catch (error) {
         res.status(500).json({
-            message: error.message
+            message: "Error deleting task",
+            error: error.message
         });
     }
 };

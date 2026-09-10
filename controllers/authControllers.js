@@ -1,7 +1,6 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-
-const AppDataSource = require("../config/data-source");
+const userService = require("../services/userService");
 
 const registerUser = async(req, res) => {
     try {
@@ -13,11 +12,7 @@ const registerUser = async(req, res) => {
             });
         }
 
-        const userRepository =
-            AppDataSource.getRepository("User");
-
-        const existingUser =
-            await userRepository.findOneBy({ email });
+        const existingUser = await userService.findUserByEmail(email);
 
         if (existingUser) {
             return res.status(400).json({
@@ -25,32 +20,28 @@ const registerUser = async(req, res) => {
             });
         }
 
-        const hashedPassword =
-            await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(password, 10);
 
-        const newUser = userRepository.create({
+        const user = await userService.createUser({
             email,
             password: hashedPassword
         });
 
-        const savedUser =
-            await userRepository.save(newUser);
-
         res.status(201).json({
             message: "User registered successfully",
             user: {
-                id: savedUser.id,
-                email: savedUser.email
+                id: user.id,
+                email: user.email
             }
         });
 
     } catch (error) {
         res.status(500).json({
-            message: error.message
+            message: "Error registering user",
+            error: error.message
         });
     }
 };
-
 
 const loginUser = async(req, res) => {
     try {
@@ -62,11 +53,7 @@ const loginUser = async(req, res) => {
             });
         }
 
-        const userRepository =
-            AppDataSource.getRepository("User");
-
-        const user =
-            await userRepository.findOneBy({ email });
+        const user = await userService.findUserByEmail(email);
 
         if (!user) {
             return res.status(401).json({
@@ -74,11 +61,10 @@ const loginUser = async(req, res) => {
             });
         }
 
-        const passwordMatch =
-            await bcrypt.compare(
-                password,
-                user.password
-            );
+        const passwordMatch = await bcrypt.compare(
+            password,
+            user.password
+        );
 
         if (!passwordMatch) {
             return res.status(401).json({
@@ -91,7 +77,7 @@ const loginUser = async(req, res) => {
                 email: user.email
             },
             process.env.JWT_SECRET, {
-                expiresIn: "1h"
+                expiresIn: "1d"
             }
         );
 
@@ -102,11 +88,11 @@ const loginUser = async(req, res) => {
 
     } catch (error) {
         res.status(500).json({
-            message: error.message
+            message: "Error logging in",
+            error: error.message
         });
     }
 };
-
 
 module.exports = {
     registerUser,
